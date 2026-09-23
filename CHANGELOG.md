@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `set_block_collapsed` tool: collapse or expand an existing block by UUID,
+  via `logseq.Editor.setBlockCollapsed`
+
+### Fixed
+
+- `set_block_properties` can set built-in DB-mode properties. A property name
+  starting with `:` is treated as a full ident (e.g.
+  `:logseq.property/background-color`, `:logseq.property/heading`) and passed
+  straight to `upsertBlockProperty`. Previously every name went through
+  `resolve_property_ident`, which only matches `:user.property/*`, so built-in
+  properties always reported "not found" and were never sent. Display-name
+  lookup for user properties is unchanged
+
 ## [1.9.2] - 2026-09-13
 
 ### Added

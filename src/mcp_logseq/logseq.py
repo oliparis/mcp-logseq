@@ -1040,6 +1040,15 @@ class LogSeq:
         logger.info(f"Successfully updated block '{block_uuid}'")
         return result
 
+    def set_block_collapsed(self, block_uuid: str, collapsed: bool = True) -> Any:
+        """Collapse or expand a block via logseq.Editor.setBlockCollapsed."""
+        logger.info(f"Setting block '{block_uuid}' collapsed={collapsed}")
+        return self._call(
+            "logseq.Editor.setBlockCollapsed",
+            [block_uuid, collapsed],
+            error_context=f"setting collapsed on block '{block_uuid}'",
+        )
+
     def query_dsl(self, query: str) -> Any:
         """Execute a Logseq DSL query to search pages and blocks.
 

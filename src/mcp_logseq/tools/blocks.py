@@ -307,7 +307,7 @@ class SetBlockPropertiesToolHandler(ToolHandler):
     def get_tool_description(self):
         return Tool(
             name=self.name,
-            description="Set properties on a block in Logseq DB-mode. Properties must be defined on the block's tag/class. Use property display names (e.g. 'Content status', not the internal ident).",
+            description="Set properties on a block in Logseq DB-mode. Use user property display names (e.g. 'Content status'), or a full ident starting with ':' for built-in properties (e.g. ':logseq.property/background-color': 'green', ':logseq.property/heading': 3).",
             input_schema={
                 "type": "object",
                 "properties": {
@@ -343,8 +343,13 @@ class SetBlockPropertiesToolHandler(ToolHandler):
             results = []
 
             for prop_name, value in properties.items():
-                # Resolve display name to ident
-                ident = api.resolve_property_ident(prop_name)
+                # Full idents (e.g. ':logseq.property/background-color') are
+                # passed straight through so built-in properties can be set;
+                # otherwise resolve a user property's display name to its ident.
+                if prop_name.startswith(":"):
+                    ident = prop_name
+                else:
+                    ident = api.resolve_property_ident(prop_name)
                 if not ident:
                     results.append(f"⚠️ Property '{prop_name}' not found")
                     continue
@@ -362,4 +367,53 @@ class SetBlockPropertiesToolHandler(ToolHandler):
             return [TextContent(
                 type="text",
                 text=f"❌ Failed to set block properties: {str(e)}",
+            )]
+
+
+class SetBlockCollapsedToolHandler(ToolHandler):
+    """Collapse or expand a block (its children are hidden when collapsed)."""
+
+    access_policy = [
+        access.BlockNamespace("block_uuid"),
+        access.BlockTag("block_uuid"),
+    ]
+
+    def __init__(self):
+        super().__init__("set_block_collapsed")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="Collapse or expand an existing LogSeq block by UUID.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the block to collapse/expand",
+                    },
+                    "collapsed": {
+                        "type": "boolean",
+                        "description": "true to collapse, false to expand (default true)",
+                        "default": True,
+                    },
+                },
+                "required": ["block_uuid"],
+            },
+        )
+
+    def _run(self, api, args: dict) -> list[TextContent]:
+        if "block_uuid" not in args:
+            raise RuntimeError("block_uuid argument required")
+        block_uuid = args["block_uuid"]
+        collapsed = bool(args.get("collapsed", True))
+        try:
+            api.set_block_collapsed(block_uuid, collapsed)
+            state = "collapsed" if collapsed else "expanded"
+            return [TextContent(type="text", text=f"✅ Block '{block_uuid}' {state}")]
+        except Exception as e:
+            logger.error(f"Failed to set collapsed on block: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to set collapsed on block '{block_uuid}': {str(e)}",
             )]

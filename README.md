@@ -174,7 +174,8 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 | **`rename_page`** | Rename with reference updates | "Rename 'Old Name' to 'New Name'" |
 | **`get_page_backlinks`** | Find pages linking to a page | "What links to this page?" |
 | **`insert_nested_block`** | Insert child/sibling blocks | "Add a child block under this task" |
-| **`set_block_properties`** | Set DB-mode class properties on a block | "Set the status of this block to active" *(DB-mode only)* |
+| **`set_block_properties`** | Set DB-mode properties on a block: user properties by display name, or built-ins by full ident (e.g. `:logseq.property/background-color`) | "Set the status of this block to active", "Make this block green" *(DB-mode only)* |
+| **`set_block_collapsed`** | Collapse or expand a block by UUID | "Collapse this block" |
 | **`vector_search`** ⚗️ | Semantic search by meaning | "Find notes about shadow work or Jung" |
 | **`sync_vector_db`** ⚗️ | Sync vector DB with graph files | "Update the search index" |
 | **`vector_db_status`** ⚗️ | Show vector DB health and staleness | "Is my search index up to date?" |
