@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `insert_block_tree` tool: insert a whole tree of blocks, written as nested
+  markdown, as children of (default) or siblings after any existing block, in
+  a single `insertBatchBlock` call. Reuses the `create_page`/`update_page`
+  markdown parser. Fills the gap between `insert_nested_block` (one block per
+  call) and `update_page` append (always at the end of the page)
+
 ## [1.9.2] - 2026-09-13
 
 ### Added

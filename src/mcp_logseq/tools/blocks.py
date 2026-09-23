@@ -5,7 +5,7 @@ import json
 from mcp.types import Tool, TextContent
 
 import mcp_logseq.tools as _t
-from .. import access
+from .. import access, parser
 from .base import ToolHandler, logger
 # GetBlock reuses GetPageContent's block-tree formatter.
 from .pages import GetPageContentToolHandler
@@ -363,3 +363,107 @@ class SetBlockPropertiesToolHandler(ToolHandler):
                 type="text",
                 text=f"❌ Failed to set block properties: {str(e)}",
             )]
+
+
+class InsertBlockTreeToolHandler(ToolHandler):
+    """Insert a whole tree of blocks under (or after) an existing block in one call."""
+
+    access_policy = [
+        access.BlockNamespace("parent_block_uuid"),
+        access.BlockTag("parent_block_uuid"),
+    ]
+
+    def __init__(self):
+        super().__init__("insert_block_tree")
+
+    def get_tool_description(self):
+        return Tool(
+            name=self.name,
+            description="""Insert a tree of blocks, written as nested markdown, under or after an existing block in a single call.
+
+Uses the same markdown parser as create_page/update_page (bullets, numbered lists,
+headings, code blocks), so indentation becomes block nesting. Unlike update_page,
+which can only append at the end of a page, this targets any existing block.
+
+- sibling=false (default): the top-level blocks become the LAST children of parent_block_uuid
+- sibling=true: the top-level blocks are inserted as siblings directly after parent_block_uuid
+
+YAML frontmatter is not supported (there is no page to attach it to).
+
+Example content:
+- Candidate A
+  - Status: Progress
+  - Review notes
+    - Strengths
+      - Point one
+- Candidate B""",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "parent_block_uuid": {
+                        "type": "string",
+                        "description": "UUID of the reference block. sibling=false inserts the tree as its children; sibling=true inserts the tree after it at the same level.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Nested markdown describing the blocks to insert",
+                    },
+                    "sibling": {
+                        "type": "boolean",
+                        "description": "false (default) = insert as children of parent_block_uuid. true = insert as siblings after it.",
+                        "default": False,
+                    },
+                },
+                "required": ["parent_block_uuid", "content"],
+            },
+        )
+
+    def _run(self, api, args: dict) -> list[TextContent]:
+        if "parent_block_uuid" not in args or "content" not in args:
+            raise RuntimeError("parent_block_uuid and content arguments required")
+
+        parent_uuid = args["parent_block_uuid"]
+        content = args["content"] or ""
+        sibling = bool(args.get("sibling", False))
+
+        if parser.FRONTMATTER_PATTERN.match(content):
+            return [TextContent(
+                type="text",
+                text="❌ YAML frontmatter is not supported by insert_block_tree; use update_page for page properties",
+            )]
+
+        nodes = parser.parse_markdown_to_blocks(content)
+        if not nodes:
+            return [TextContent(type="text", text="❌ No blocks found in content")]
+
+        blocks = parser.blocks_to_batch_format(nodes)
+        total = _count_batch_blocks(blocks)
+
+        try:
+            result = api.insert_batch_block(parent_uuid, blocks, sibling=sibling)
+        except Exception as e:
+            logger.error(f"Failed to insert block tree: {str(e)}")
+            return [TextContent(
+                type="text",
+                text=f"❌ Failed to insert block tree under '{parent_uuid}': {str(e)}",
+            )]
+
+        relationship = "siblings after" if sibling else "children of"
+        lines = [
+            f"✅ Inserted {total} block(s) ({len(blocks)} top-level) as {relationship} {parent_uuid}",
+        ]
+        created = result if isinstance(result, list) else []
+        top_level = [b for b in created if isinstance(b, dict) and b.get("uuid")]
+        if top_level:
+            lines.append("Top-level block UUIDs:")
+            for b in top_level[: len(blocks)]:
+                preview = (b.get("content") or "").split("\n", 1)[0]
+                if len(preview) > 60:
+                    preview = preview[:60] + "..."
+                lines.append(f"- {b['uuid']}  {preview}")
+        return [TextContent(type="text", text="\n".join(lines))]
+
+
+def _count_batch_blocks(blocks: list[dict]) -> int:
+    """Count every block in an IBatchBlock tree."""
+    return sum(1 + _count_batch_blocks(b.get("children") or []) for b in blocks)

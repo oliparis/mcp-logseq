@@ -48,6 +48,7 @@ from .blocks import (
     GetBlockToolHandler,
     InsertNestedBlockToolHandler,
     SetBlockPropertiesToolHandler,
+    InsertBlockTreeToolHandler,
 )
 from .search import (
     SearchToolHandler,
@@ -78,4 +79,5 @@ __all__ = [
     "GetPageBacklinksToolHandler",
     "InsertNestedBlockToolHandler",
     "SetBlockPropertiesToolHandler",
+    "InsertBlockTreeToolHandler",
 ]
