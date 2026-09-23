@@ -510,6 +510,14 @@ Example content:
                 text=f"❌ Failed to insert block tree under '{parent_uuid}': {str(e)}",
             )]
 
+        if not result:
+            # Logseq answers null (and writes nothing) when the anchor block
+            # doesn't exist, instead of raising.
+            return [TextContent(
+                type="text",
+                text=f"❌ Nothing inserted: Logseq returned no blocks (does block '{parent_uuid}' exist?)",
+            )]
+
         relationship = "siblings after" if sibling else "children of"
         lines = [
             f"✅ Inserted {total} block(s) ({len(blocks)} top-level) as {relationship} {parent_uuid}",
