@@ -440,7 +440,15 @@ Example content:
         total = _count_batch_blocks(blocks)
 
         try:
-            result = api.insert_batch_block(parent_uuid, blocks, sibling=sibling)
+            anchor, anchor_sibling = parent_uuid, sibling
+            if not sibling:
+                # insertBatchBlock with sibling=false puts the tree at the TOP of
+                # the parent's children. To append after existing children,
+                # anchor on the last child and insert as its siblings instead.
+                last_child = _last_child_uuid(api.get_block(parent_uuid, include_children=False))
+                if last_child:
+                    anchor, anchor_sibling = last_child, True
+            result = api.insert_batch_block(anchor, blocks, sibling=anchor_sibling)
         except Exception as e:
             logger.error(f"Failed to insert block tree: {str(e)}")
             return [TextContent(
@@ -452,12 +460,11 @@ Example content:
         lines = [
             f"✅ Inserted {total} block(s) ({len(blocks)} top-level) as {relationship} {parent_uuid}",
         ]
-        created = result if isinstance(result, list) else []
-        top_level = [b for b in created if isinstance(b, dict) and b.get("uuid")]
+        top_level = _top_level_results(blocks, result)
         if top_level:
             lines.append("Top-level block UUIDs:")
-            for b in top_level[: len(blocks)]:
-                preview = (b.get("content") or "").split("\n", 1)[0]
+            for b in top_level:
+                preview = (b.get("content") or b.get("title") or "").split("\n", 1)[0]
                 if len(preview) > 60:
                     preview = preview[:60] + "..."
                 lines.append(f"- {b['uuid']}  {preview}")
@@ -467,3 +474,39 @@ Example content:
 def _count_batch_blocks(blocks: list[dict]) -> int:
     """Count every block in an IBatchBlock tree."""
     return sum(1 + _count_batch_blocks(b.get("children") or []) for b in blocks)
+
+
+def _last_child_uuid(block) -> str | None:
+    """UUID of a block's last child, from a getBlock(includeChildren=False) result.
+
+    Without children expanded, Logseq lists them as ``["uuid", "<uuid>"]`` pairs
+    in display order; expanded children are dicts with a ``uuid`` key.
+    """
+    children = (block or {}).get("children") or []
+    if not children:
+        return None
+    last = children[-1]
+    if isinstance(last, dict):
+        return last.get("uuid")
+    if isinstance(last, (list, tuple)) and len(last) == 2 and last[0] == "uuid":
+        return last[1]
+    return None
+
+
+def _top_level_results(blocks: list[dict], result) -> list[dict]:
+    """Pick the top-level entries out of insertBatchBlock's result.
+
+    Logseq returns every created block as one flat list in depth-first order,
+    so the top-level blocks sit at offsets given by the size of each subtree.
+    Returns [] if the result doesn't have that shape.
+    """
+    if not isinstance(result, list) or len(result) != _count_batch_blocks(blocks):
+        return []
+    picked, idx = [], 0
+    for block in blocks:
+        entry = result[idx]
+        if not (isinstance(entry, dict) and entry.get("uuid")):
+            return []
+        picked.append(entry)
+        idx += _count_batch_blocks([block])
+    return picked
