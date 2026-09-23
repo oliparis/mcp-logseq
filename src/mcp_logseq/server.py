@@ -76,6 +76,7 @@ def _register_all_tool_handlers(handlers: dict, read_only: bool = False) -> None
     add(tools.InsertNestedBlockToolHandler())
     add(tools.SetBlockPropertiesToolHandler())
     add(tools.SetBlockCollapsedToolHandler())
+    add(tools.InsertBlockTreeToolHandler())
     logger.info("Tool handlers registration complete")
 
     # Conditional vector tool registration — only when LOGSEQ_CONFIG_FILE is set

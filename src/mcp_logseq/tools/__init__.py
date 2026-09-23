@@ -49,6 +49,7 @@ from .blocks import (
     InsertNestedBlockToolHandler,
     SetBlockPropertiesToolHandler,
     SetBlockCollapsedToolHandler,
+    InsertBlockTreeToolHandler,
 )
 from .search import (
     SearchToolHandler,
@@ -80,4 +81,5 @@ __all__ = [
     "InsertNestedBlockToolHandler",
     "SetBlockPropertiesToolHandler",
     "SetBlockCollapsedToolHandler",
+    "InsertBlockTreeToolHandler",
 ]

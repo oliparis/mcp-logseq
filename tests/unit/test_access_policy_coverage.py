@@ -64,6 +64,10 @@ EXPECTED_POLICIES = {
         (access.BlockNamespace, "block_uuid"),
         (access.BlockTag, "block_uuid"),
     },
+    tools.InsertBlockTreeToolHandler: {
+        (access.BlockNamespace, "parent_block_uuid"),
+        (access.BlockTag, "parent_block_uuid"),
+    },
     # Namespace-tree handlers (name-gated; results filtered in _run) -----------
     tools.GetPagesFromNamespaceToolHandler: {(access.NamespaceName, "namespace")},
     tools.GetPagesTreeFromNamespaceToolHandler: {(access.NamespaceName, "namespace")},
