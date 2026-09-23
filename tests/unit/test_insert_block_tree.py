@@ -13,9 +13,10 @@ TREE = """- Candidate A
   - Status: Reject"""
 
 
-def _run(args, result=None):
+def _run(args, result=None, parent_children=None):
     api = MagicMock()
     api.insert_batch_block.return_value = result
+    api.get_block.return_value = {"uuid": "p1", "children": parent_children or []}
     out = tools.InsertBlockTreeToolHandler()._run(api, args)
     return api, out[0].text
 
@@ -24,7 +25,7 @@ def test_inserts_nested_tree_as_children_in_one_call():
     api, text = _run({"parent_block_uuid": "p1", "content": TREE})
     api.insert_batch_block.assert_called_once()
     anchor, blocks = api.insert_batch_block.call_args.args[:2]
-    assert anchor == "p1"
+    assert anchor == "p1"  # parent has no children yet -> insert directly as children
     assert api.insert_batch_block.call_args.kwargs == {"sibling": False}
     assert [b["content"] for b in blocks] == ["Candidate A", "Candidate B"]
     a = blocks[0]["children"]
@@ -37,6 +38,8 @@ def test_inserts_nested_tree_as_children_in_one_call():
 
 def test_sibling_mode():
     api, text = _run({"parent_block_uuid": "p1", "content": "- One\n- Two", "sibling": True})
+    api.get_block.assert_not_called()
+    assert api.insert_batch_block.call_args.args[0] == "p1"
     assert api.insert_batch_block.call_args.kwargs == {"sibling": True}
     assert "siblings after p1" in text
 
@@ -48,11 +51,35 @@ def test_headings_kept_in_content():
     assert blocks[0]["children"][0]["content"] == "child"
 
 
-def test_reports_top_level_uuids_when_returned():
-    result = [{"uuid": "u-a", "content": "Candidate A"}, {"uuid": "u-b", "content": "Candidate B"}]
+def test_reports_top_level_uuids_from_flat_depth_first_result():
+    # Logseq returns all 8 created blocks flat, depth-first
+    contents = ["Candidate A", "Status: Progress", "Review notes", "Strengths",
+                "Point one", "Point two", "Candidate B", "Status: Reject"]
+    result = [{"uuid": f"u{i}", "content": c} for i, c in enumerate(contents)]
     _, text = _run({"parent_block_uuid": "p1", "content": TREE}, result=result)
-    assert "- u-a  Candidate A" in text
-    assert "- u-b  Candidate B" in text
+    assert "- u0  Candidate A" in text
+    assert "- u6  Candidate B" in text
+    assert "Status: Progress" not in text.split("Top-level block UUIDs:")[1]
+
+
+def test_no_uuid_list_when_result_shape_unexpected():
+    _, text = _run({"parent_block_uuid": "p1", "content": TREE}, result=[{"uuid": "x"}])
+    assert "Top-level block UUIDs" not in text
+
+
+def test_appends_after_last_existing_child():
+    api, _ = _run({"parent_block_uuid": "p1", "content": "- New"},
+                  parent_children=[["uuid", "c1"], ["uuid", "c2"]])
+    api.get_block.assert_called_once_with("p1", include_children=False)
+    anchor = api.insert_batch_block.call_args.args[0]
+    assert anchor == "c2"
+    assert api.insert_batch_block.call_args.kwargs == {"sibling": True}
+
+
+def test_appends_after_last_child_when_children_expanded():
+    api, _ = _run({"parent_block_uuid": "p1", "content": "- New"},
+                  parent_children=[{"uuid": "c1"}, {"uuid": "c9"}])
+    assert api.insert_batch_block.call_args.args[0] == "c9"
 
 
 def test_empty_content_rejected():
