@@ -13,9 +13,12 @@ TREE = """- Candidate A
   - Status: Reject"""
 
 
-def _run(args, result=None, parent_children=None):
+_DEFAULT = object()
+
+
+def _run(args, result=_DEFAULT, parent_children=None):
     api = MagicMock()
-    api.insert_batch_block.return_value = result
+    api.insert_batch_block.return_value = [{"uuid": "x"}] if result is _DEFAULT else result
     api.get_block.return_value = {"uuid": "p1", "children": parent_children or []}
     out = tools.InsertBlockTreeToolHandler()._run(api, args)
     return api, out[0].text
@@ -99,3 +102,17 @@ def test_api_error_reported():
     api.insert_batch_block.side_effect = RuntimeError("boom")
     text = tools.InsertBlockTreeToolHandler()._run(api, {"parent_block_uuid": "p1", "content": "- One"})[0].text
     assert "Failed to insert block tree" in text and "boom" in text
+
+
+def test_null_result_reported_as_failure():
+    # Logseq returns null and writes nothing for a missing anchor block
+    _, text = _run({"parent_block_uuid": "missing", "content": "- One", "sibling": True}, result=None)
+    assert text.startswith("❌ Nothing inserted")
+
+
+def test_missing_parent_in_children_mode_fails_on_lookup():
+    api = MagicMock()
+    api.get_block.side_effect = ValueError("Block 'missing' not found")
+    text = tools.InsertBlockTreeToolHandler()._run(api, {"parent_block_uuid": "missing", "content": "- One"})[0].text
+    api.insert_batch_block.assert_not_called()
+    assert "Failed to insert block tree" in text and "not found" in text
