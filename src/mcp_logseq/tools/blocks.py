@@ -375,6 +375,7 @@ class InsertBlockTreeToolHandler(ToolHandler):
     access_policy = [
         access.BlockNamespace("parent_block_uuid"),
         access.BlockTag("parent_block_uuid"),
+        access.WriteBlockNamespace("parent_block_uuid"),
     ]
 
     def __init__(self):
