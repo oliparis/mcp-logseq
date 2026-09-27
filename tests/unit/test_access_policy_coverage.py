@@ -75,10 +75,12 @@ EXPECTED_POLICIES = {
     tools.SetBlockCollapsedToolHandler: {
         (access.BlockNamespace, "block_uuid"),
         (access.BlockTag, "block_uuid"),
+        (access.WriteBlockNamespace, "block_uuid"),
     },
     tools.InsertBlockTreeToolHandler: {
         (access.BlockNamespace, "parent_block_uuid"),
         (access.BlockTag, "parent_block_uuid"),
+        (access.WriteBlockNamespace, "parent_block_uuid"),
     },
     # Namespace-tree handlers (name-gated; results filtered in _run) -----------
     tools.GetPagesFromNamespaceToolHandler: {(access.NamespaceName, "namespace")},

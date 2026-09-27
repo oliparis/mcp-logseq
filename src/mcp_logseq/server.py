@@ -33,6 +33,8 @@ _WRITE_TOOL_NAMES = frozenset(
         "delete_block",
         "insert_nested_block",
         "set_block_properties",
+        "set_block_collapsed",
+        "insert_block_tree",
     }
 )
 

@@ -380,6 +380,7 @@ class SetBlockCollapsedToolHandler(ToolHandler):
     access_policy = [
         access.BlockNamespace("block_uuid"),
         access.BlockTag("block_uuid"),
+        access.WriteBlockNamespace("block_uuid"),
     ]
 
     def __init__(self):
@@ -429,6 +430,7 @@ class InsertBlockTreeToolHandler(ToolHandler):
     access_policy = [
         access.BlockNamespace("parent_block_uuid"),
         access.BlockTag("parent_block_uuid"),
+        access.WriteBlockNamespace("parent_block_uuid"),
     ]
 
     def __init__(self):
