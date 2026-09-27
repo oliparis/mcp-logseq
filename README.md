@@ -158,7 +158,7 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 
 | Tool | Purpose | Example Use |
 |------|---------|-------------|
-| **`list_pages`** | Browse your graph | "Show me all my pages" |
+| **`list_pages`** | Browse your graph; `sort: "updated"` / `updated_since` find recently modified pages | "Which pages did I change this week?" |
 | **`get_page_content`** | Read page content | "Get my project notes" |
 | **`create_page`** | Add new pages with structured blocks | "Create a meeting notes page with agenda items" |
 | **`update_page`** | Modify pages (append/replace modes) | "Update my task list" |
@@ -167,7 +167,7 @@ The server provides 17 tools with intelligent markdown parsing, plus 3 optional 
 | **`update_block`** | Edit block content by UUID | "Update this specific block text" |
 | **`get_block`** | Read a block by UUID with its properties and children | "Show me this specific block" |
 | **`search`** | Find content across graph | "Search for 'productivity tips'" |
-| **`query`** | Execute Logseq DSL queries | "Find all TODO tasks tagged #project" |
+| **`query`** | Execute Logseq DSL queries (raw datalog not supported) | "Find all TODO tasks tagged #project" |
 | **`find_pages_by_property`** | Search pages by property | "Find all pages with status = active" |
 | **`get_pages_from_namespace`** | List pages in a namespace | "Show all pages under Customer/" |
 | **`get_pages_tree_from_namespace`** | Hierarchical namespace view | "Show Projects/ as a tree" |
@@ -262,7 +262,8 @@ If you hit the "already exists" error mid-ingest, use `get_page_content` to see 
 - **`LOGSEQ_EXCLUDE_TAGS`** (optional): Comma-separated tags — pages with these tags are hidden from all tools. See [Privacy & Access Control](#-privacy--access-control) below.
 - **`LOGSEQ_INCLUDE_NAMESPACES`** (optional): Comma-separated namespace allow-list (e.g. `work,projects`). When set, **only** pages in these namespaces and their sub-pages are accessible — everything else, including top-level pages without a namespace, is hidden from listings/search and denied on direct access. See [Privacy & Access Control](#-privacy--access-control) below.
 - **`LOGSEQ_EXCLUDE_NAMESPACES`** (optional): Comma-separated namespace deny-list (e.g. `finance,work/secret`). These namespaces are always blocked, taking priority over the include list. See [Privacy & Access Control](#-privacy--access-control) below.
-- **`LOGSEQ_CONFIG_FILE`** (optional): Path to a shared JSON config file holding the graph path, ACL defaults, and the `vector` block. Env vars (`LOGSEQ_EXCLUDE_TAGS`, `LOGSEQ_INCLUDE_NAMESPACES`, `LOGSEQ_EXCLUDE_NAMESPACES`) override the matching keys in this file.
+- **`LOGSEQ_WRITE_NAMESPACES`** (optional): Comma-separated write allow-list (e.g. `Beren`). When set, write tools may only target pages in these namespaces; everything else that is readable stays read-only. Applied on top of the include/exclude rules, never instead of them. See [Privacy & Access Control](#-privacy--access-control) below.
+- **`LOGSEQ_CONFIG_FILE`** (optional): Path to a shared JSON config file holding the graph path, ACL defaults, and the `vector` block. Env vars (`LOGSEQ_EXCLUDE_TAGS`, `LOGSEQ_INCLUDE_NAMESPACES`, `LOGSEQ_EXCLUDE_NAMESPACES`, `LOGSEQ_WRITE_NAMESPACES`) override the matching keys in this file.
 - **`MCP_HTTP_AUTH_TOKEN`** (required for `--transport http`): Bearer token clients must send as `Authorization: Bearer <token>`. The server refuses to start in HTTP mode without it. See [Serving over HTTP](docs/SERVING.md).
 
 ### Privacy & Access Control
@@ -308,9 +309,17 @@ LOGSEQ_EXCLUDE_NAMESPACES=work/secret,finance
 ```json
 {
   "include_namespaces": ["work", "projects"],
-  "exclude_namespaces": ["work/secret", "finance"]
+  "exclude_namespaces": ["work/secret", "finance"],
+  "write_namespaces": ["work/drafts"]
 }
 ```
+
+**Write list (write allow-list):** Everything the read rules allow stays readable, but write tools (`create_page`, `update_page`, `delete_page`, `rename_page`, `update_block`, `delete_block`, `insert_nested_block`, `set_block_properties`) may only target pages in these namespaces. Useful when an assistant should read a wider area than it may edit:
+```bash
+LOGSEQ_INCLUDE_NAMESPACES=Family,Beren
+LOGSEQ_WRITE_NAMESPACES=Beren   # reads Family/* and Beren/*, writes only Beren/*
+```
+`rename_page` needs both the old and the new name inside the write list; block tools are checked against the block's owning page (denied if it cannot be resolved). A write outside the list returns "page 'X' is read-only for this assistant". The write list never widens read access: a write namespace not covered by the include list is still denied (a warning is logged at startup). Unset means no extra restriction. Every allowed write is logged at INFO as `Write: tool=<name> page=<page name>` (names only, never content).
 
 Matching is segment-based and case-insensitive: `work` matches `work` and `work/projects` but not `workshop`. The behavior mirrors `LOGSEQ_EXCLUDE_TAGS`: list/search results silently omit blocked pages; direct read, write, delete, and block operations return an access-denied error.
 
